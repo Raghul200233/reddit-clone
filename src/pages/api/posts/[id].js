@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch single post with author and community details
     const result = await pool.query(
       `
       SELECT 
@@ -35,11 +34,10 @@ export default async function handler(req, res) {
               'id', cm.id, 
               'content', cm.content, 
               'createdAt', cm."createdAt",
-              'authorId', cm."authorId",
               'author', json_build_object('id', au.id, 'username', au.username, 'email', au.email)
             ) ORDER BY cm."createdAt" DESC
           ) FROM "Comment" cm 
-          LEFT JOIN "User" au ON cm."authorId" = au.id
+          JOIN "User" au ON cm."authorId" = au.id
           WHERE cm."postId" = p.id),
           '[]'::json
         ) as comments
@@ -66,6 +64,8 @@ export default async function handler(req, res) {
       type: row.type,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      communityId: row.communityId,
+      authorId: row.authorId,
       author: {
         id: row.author_id,
         username: row.author_username,
@@ -79,9 +79,6 @@ export default async function handler(req, res) {
       },
       votes: row.votes || [],
       comments: row.comments || [],
-      voteScore: Array.isArray(row.votes) 
-        ? row.votes.reduce((acc, vote) => acc + (vote.type === "UP" ? 1 : -1), 0)
-        : 0
     };
 
     res.status(200).json(post);

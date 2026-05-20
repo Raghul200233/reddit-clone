@@ -3,14 +3,13 @@ import { useRouter } from "next/router";
 import Layout from "../../components/Layout";
 import VoteButtons from "../../components/VoteButtons";
 import CommentSection from "../../components/CommentSection";
-import Link from "next/link";
-import { format } from "timeago.js";
+import TimeAgo from "react-time-ago";
 import { useSession } from "next-auth/react";
 
 export default function PostDetail() {
+  const { data: session } = useSession();
   const router = useRouter();
   const { id } = router.query;
-  const { data: session } = useSession();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,13 +21,10 @@ export default function PostDetail() {
   }, [id]);
 
   const fetchPost = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/posts/${id}`);
       if (!res.ok) {
-        if (res.status === 404) {
-          throw new Error("Post not found");
-        }
+        if (res.status === 404) throw new Error("Post not found");
         throw new Error("Failed to fetch post");
       }
       const data = await res.json();
@@ -41,12 +37,8 @@ export default function PostDetail() {
     }
   };
 
-  const handleVoteUpdate = (newScore, userVote) => {
-    setPost(prev => ({
-      ...prev,
-      voteScore: newScore,
-      userVote: userVote
-    }));
+  const handleVoteUpdate = () => {
+    fetchPost(); // Refresh post after vote
   };
 
   if (loading) {
@@ -75,13 +67,24 @@ export default function PostDetail() {
               ? "The post you're looking for doesn't exist or has been deleted."
               : "There was an error loading this post. Please try again."}
           </p>
-          <Link href="/" className="inline-block bg-[#FF4500] text-white px-6 py-2 rounded-full hover:bg-[#FF5722]">
+          <button 
+            onClick={() => router.push("/")}
+            className="inline-block bg-[#FF4500] text-white px-6 py-2 rounded-full hover:bg-[#FF5722]"
+          >
             Go Home
-          </Link>
+          </button>
         </div>
       </Layout>
     );
   }
+
+  const voteScore = post.votes?.reduce((acc, vote) => {
+    return acc + (vote.type === "UP" ? 1 : -1);
+  }, 0) || 0;
+
+  const userVote = session
+    ? post.votes?.find((v) => v.userId === session.user.id)?.type
+    : null;
 
   return (
     <Layout>
@@ -90,23 +93,26 @@ export default function PostDetail() {
           <div className="flex gap-4">
             <VoteButtons
               postId={post.id}
-              initialScore={post.voteScore}
-              userVote={post.userVote}
+              initialScore={voteScore}
+              userVote={userVote}
               onVoteUpdate={handleVoteUpdate}
             />
             
             <div className="flex-1">
               <div className="text-sm text-gray-500 mb-2">
-                <Link href={`/r/${post.community.slug}`} className="font-medium text-gray-900 hover:text-[#FF4500]">
+                Posted in
+                <a href={`/r/${post.community.slug}`} className="text-[#FF4500] hover:underline ml-1">
                   r/{post.community.name}
-                </Link>
-                <span className="mx-1">•</span>
-                <span>Posted by u/{post.author.username}</span>
-                <span className="mx-1">•</span>
-                <span>{format(post.createdAt)}</span>
+                </a>
+                {" • by u/"}
+                <a href={`/user/${post.author.username}`} className="hover:text-[#FF4500]">
+                  {post.author.username}
+                </a>
+                {" • "}
+                <TimeAgo date={new Date(post.createdAt)} locale="en-US" />
               </div>
               
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h1>
+              <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
               
               {post.type === "text" && (
                 <div className="prose max-w-none mb-4">
@@ -115,16 +121,14 @@ export default function PostDetail() {
               )}
               
               {post.type === "image" && post.imageUrl && (
-                <div className="mb-4">
-                  <img 
-                    src={post.imageUrl} 
-                    alt={post.title} 
-                    className="max-w-full rounded-lg"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/600x400?text=Image+Not+Found';
-                    }}
-                  />
-                </div>
+                <img 
+                  src={post.imageUrl} 
+                  alt={post.title} 
+                  className="max-w-full rounded-lg mb-4"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/600x400?text=Image+Not+Found';
+                  }}
+                />
               )}
               
               {post.type === "link" && post.linkUrl && (
@@ -141,11 +145,7 @@ export default function PostDetail() {
           </div>
         </div>
         
-        <CommentSection 
-          postId={post.id} 
-          initialComments={post.comments || []}
-          onCommentAdded={fetchPost}
-        />
+        <CommentSection postId={post.id} initialComments={post.comments || []} />
       </div>
     </Layout>
   );
