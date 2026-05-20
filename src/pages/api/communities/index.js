@@ -1,13 +1,30 @@
 import pool from "../../../lib/db";
 import { getServerSession } from "next-auth";
+import { getToken } from "next-auth/jwt";
 
 export default async function handler(req, res) {
   // Handle POST - Create new community
   if (req.method === "POST") {
+    // Try both methods to get user
     const session = await getServerSession(req, res, {});
-
-    if (!session) {
-      return res.status(401).json({ error: "Unauthorized - Please login" });
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    
+    let userId = null;
+    
+    if (session?.user?.id) {
+      userId = session.user.id;
+    } else if (token?.id) {
+      userId = token.id;
+    } else if (token?.sub) {
+      userId = token.sub;
+    }
+    
+    console.log("Session user:", session?.user);
+    console.log("Token:", token);
+    console.log("Extracted userId:", userId);
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized - Please login again" });
     }
 
     const { name, description } = req.body;
@@ -17,7 +34,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Community name is required" });
     }
 
-    // Validate community name format (only letters, numbers, underscores, hyphens)
     const nameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!nameRegex.test(name)) {
       return res.status(400).json({ error: "Community name can only contain letters, numbers, underscores, and hyphens" });
@@ -36,7 +52,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Community already exists" });
       }
 
-      // Create the community
+      // Create the community (no authorId needed - communities don't have owners in this schema)
       const result = await pool.query(
         `INSERT INTO "Community" (id, name, slug, description, "createdAt") 
          VALUES (gen_random_uuid()::text, $1, $2, $3, NOW()) 
@@ -58,7 +74,6 @@ export default async function handler(req, res) {
 
     try {
       if (slug) {
-        // Fetch single community by slug
         const result = await pool.query(
           `SELECT * FROM "Community" WHERE slug = $1`,
           [slug]
@@ -70,7 +85,6 @@ export default async function handler(req, res) {
         
         return res.status(200).json(result.rows[0]);
       } else {
-        // Fetch all communities
         const result = await pool.query(
           `SELECT c.*, COUNT(p.id) as "postCount"
            FROM "Community" c

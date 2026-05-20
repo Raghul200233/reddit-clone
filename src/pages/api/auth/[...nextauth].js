@@ -34,6 +34,7 @@ export default NextAuth({
             throw new Error("Invalid password");
           }
 
+          // Return user object with id
           return {
             id: user.id,
             email: user.email,
