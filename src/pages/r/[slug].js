@@ -1,25 +1,75 @@
-import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Layout from "../../components/Layout";
 import PostCard from "../../components/PostCard";
 import Link from "next/link";
-import { PrismaClient } from "@prisma/client";
+import { useSession } from "next-auth/react";
+import SkeletonLoader from "../../components/SkeletonLoader";
 
-const prisma = new PrismaClient();
-
-export default function CommunityPage({ community, initialPosts }) {
-  const { data: session } = useSession();
+export default function CommunityPage() {
   const router = useRouter();
-  const [posts, setPosts] = useState(initialPosts);
+  const { slug } = router.query;
+  const { data: session } = useSession();
+  const [community, setCommunity] = useState(null);
+  const [posts, setPosts] = useState([]);
   const [sortBy, setSortBy] = useState("latest");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  if (!community) {
+  useEffect(() => {
+    if (slug) {
+      fetchCommunity();
+      fetchPosts();
+    }
+  }, [slug, sortBy]);
+
+  const fetchCommunity = async () => {
+    try {
+      const res = await fetch(`/api/communities?slug=${slug}`);
+      if (!res.ok) throw new Error("Community not found");
+      const data = await res.json();
+      setCommunity(data);
+    } catch (error) {
+      console.error("Error fetching community:", error);
+      setError("Community not found");
+    }
+  };
+
+  const fetchPosts = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/posts?sort=${sortBy}&communitySlug=${slug}`);
+      if (!res.ok) throw new Error("Failed to fetch posts");
+      const data = await res.json();
+      setPosts(data);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+      setError("Failed to load posts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSortChange = (sort) => {
+    setSortBy(sort);
+  };
+
+  const handleVoteUpdate = (postId, newScore, userVote) => {
+    setPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId
+          ? { ...post, voteScore: newScore, userVote }
+          : post
+      )
+    );
+  };
+
+  if (error || (community === null && !loading)) {
     return (
       <Layout>
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold mb-4">Community not found</h1>
-          <Link href="/" className="text-blue-500 hover:underline">
+          <Link href="/" className="text-[#FF4500] hover:underline">
             Go home
           </Link>
         </div>
@@ -27,38 +77,20 @@ export default function CommunityPage({ community, initialPosts }) {
     );
   }
 
-  const sortedPosts = [...posts].sort((a, b) => {
-    if (sortBy === "latest") {
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    } else {
-      const scoreA = a.votes?.reduce((acc, vote) => acc + (vote.type === "UP" ? 1 : -1), 0) || 0;
-      const scoreB = b.votes?.reduce((acc, vote) => acc + (vote.type === "UP" ? 1 : -1), 0) || 0;
-      return scoreB - scoreA;
-    }
-  });
-
-  const handleVoteUpdate = (postId, newScore, userVote) => {
-    setPosts(prevPosts =>
-      prevPosts.map(post =>
-        post.id === postId
-          ? { ...post, votes: [{ type: userVote }], userVote }
-          : post
-      )
-    );
-  };
-
   return (
     <Layout>
       <div className="mb-6">
-        <div className="card">
-          <h1 className="text-3xl font-bold mb-2">r/{community.name}</h1>
-          {community.description && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h1 className="text-2xl font-bold mb-2">
+            r/{community?.name || slug}
+          </h1>
+          {community?.description && (
             <p className="text-gray-600">{community.description}</p>
           )}
           {session && (
             <Link
-              href={`/r/${community.slug}/create-post`}
-              className="inline-block mt-4 btn-primary"
+              href={`/r/${slug}/create-post`}
+              className="inline-block mt-4 bg-[#FF4500] text-white px-4 py-2 rounded-full hover:bg-[#FF5722] transition-colors"
             >
               Create Post
             </Link>
@@ -66,35 +98,45 @@ export default function CommunityPage({ community, initialPosts }) {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4 bg-white rounded-lg border border-gray-200 p-2">
         <button
-          onClick={() => setSortBy("latest")}
-          className={`px-4 py-2 rounded-lg ${
+          onClick={() => handleSortChange("latest")}
+          className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
             sortBy === "latest"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700"
+              ? "bg-[#FF4500] text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          Latest
+          📅 Latest
         </button>
         <button
-          onClick={() => setSortBy("popular")}
-          className={`px-4 py-2 rounded-lg ${
+          onClick={() => handleSortChange("popular")}
+          className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
             sortBy === "popular"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700"
+              ? "bg-[#FF4500] text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          Popular
+          🔥 Popular
         </button>
       </div>
 
-      {sortedPosts.length === 0 ? (
-        <div className="text-center py-12 card">
-          <p className="text-gray-500">No posts yet. Be the first to post!</p>
+      {loading ? (
+        <SkeletonLoader />
+      ) : posts.length === 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+          <p className="text-gray-500">No posts yet in this community.</p>
+          {session && (
+            <Link
+              href={`/r/${slug}/create-post`}
+              className="inline-block mt-4 text-[#FF4500] hover:underline"
+            >
+              Be the first to post!
+            </Link>
+          )}
         </div>
       ) : (
-        sortedPosts.map((post) => (
+        posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
@@ -104,32 +146,4 @@ export default function CommunityPage({ community, initialPosts }) {
       )}
     </Layout>
   );
-}
-
-export async function getServerSideProps({ params }) {
-  const community = await prisma.community.findUnique({
-    where: { slug: params.slug },
-  });
-
-  if (!community) {
-    return { props: { community: null, initialPosts: [] } };
-  }
-
-  const posts = await prisma.post.findMany({
-    where: { communityId: community.id },
-    include: {
-      author: true,
-      community: true,
-      votes: true,
-      comments: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return {
-    props: {
-      community: JSON.parse(JSON.stringify(community)),
-      initialPosts: JSON.parse(JSON.stringify(posts)),
-    },
-  };
 }

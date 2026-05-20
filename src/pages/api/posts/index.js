@@ -77,6 +77,18 @@ export default async function handler(req, res) {
     }
   }
   
+
+  const { sort = "latest", communitySlug } = req.query;
+
+// Build the WHERE clause for community filter
+let communityFilter = "";
+let queryParams = [];
+
+if (communitySlug) {
+  communityFilter = `WHERE c.slug = $1`;
+  queryParams = [communitySlug];
+}
+
   // Handle GET request - Fetch posts
   else if (req.method === "GET") {
     const { sort = "latest" } = req.query;
@@ -86,31 +98,32 @@ export default async function handler(req, res) {
       
       if (sort === "latest") {
         // Fetch latest posts
-        const result = await pool.query(`
-          SELECT 
-            p.*,
-            u.id as author_id,
-            u.username as author_username,
-            u.email as author_email,
-            c.id as community_id,
-            c.name as community_name,
-            c.slug as community_slug,
-            c.description as community_description,
-            COALESCE(
-              (SELECT json_agg(json_build_object('type', v.type, 'userId', v."userId")) 
-               FROM "Vote" v WHERE v."postId" = p.id),
-              '[]'::json
-            ) as votes,
-            COALESCE(
-              (SELECT COUNT(*) FROM "Comment" cm WHERE cm."postId" = p.id),
-              0
-            ) as comment_count
-          FROM "Post" p
-          JOIN "User" u ON p."authorId" = u.id
-          JOIN "Community" c ON p."communityId" = c.id
-          ORDER BY p."createdAt" DESC
-          LIMIT 50
-        `);
+const result = await pool.query(`
+  SELECT 
+    p.*,
+    u.id as author_id,
+    u.username as author_username,
+    u.email as author_email,
+    c.id as community_id,
+    c.name as community_name,
+    c.slug as community_slug,
+    c.description as community_description,
+    COALESCE(
+      (SELECT json_agg(json_build_object('type', v.type, 'userId', v."userId")) 
+       FROM "Vote" v WHERE v."postId" = p.id),
+      '[]'::json
+    ) as votes,
+    COALESCE(
+      (SELECT COUNT(*) FROM "Comment" cm WHERE cm."postId" = p.id),
+      0
+    ) as comment_count
+  FROM "Post" p
+  JOIN "User" u ON p."authorId" = u.id
+  JOIN "Community" c ON p."communityId" = c.id
+  ${communityFilter}
+  ORDER BY p."createdAt" DESC
+  LIMIT 50
+`, queryParams);
         
         posts = result.rows.map(row => ({
           id: row.id,
