@@ -9,62 +9,85 @@ export default function VoteButtons({ postId, initialScore, userVote: initialUse
   const [loading, setLoading] = useState(false);
 
   const handleVote = async (type) => {
+    console.log("Vote clicked:", { type, sessionExists: !!session });
+    
     if (!session) {
       toast.error("Please login to vote");
       return;
     }
 
-    if (loading) return;
+    if (loading) {
+      console.log("Vote already in progress");
+      return;
+    }
+    
     setLoading(true);
-
+    
     try {
+      console.log("Sending vote request:", { postId, type });
+      
       const res = await fetch("/api/votes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ postId, type }),
       });
 
-      if (!res.ok) throw new Error("Failed to vote");
-
-      const data = await res.json();
+      console.log("Vote response status:", res.status);
       
+      const data = await res.json();
+      console.log("Vote response data:", data);
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to vote");
+      }
+
       setScore(data.score);
       setUserVote(data.userVote);
       
       if (onVoteUpdate) {
         onVoteUpdate(data.score, data.userVote);
       }
+      
+      toast.success(data.userVote ? "Vote recorded!" : "Vote removed!");
+      
     } catch (error) {
-      toast.error("Failed to vote. Please try again.");
+      console.error("Vote error:", error);
+      toast.error(error.message || "Failed to vote. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-row md:flex-col items-center gap-1 md:gap-0.5">
+    <div className="flex flex-col items-center gap-1 min-w-[40px]">
       <button
         onClick={() => handleVote("UP")}
         disabled={!session || loading}
-        className={`vote-button text-lg md:text-xl font-bold transition-all duration-150 ${
+        className={`text-xl font-bold transition-all duration-150 ${
           !session ? "opacity-50 cursor-not-allowed" : "hover:scale-110"
         } ${
-          userVote === "UP" ? "vote-button-active-up" : "text-gray-400 hover:text-[#FF4500]"
+          userVote === "UP" 
+            ? "text-[#FF4500]" 
+            : "text-gray-400 hover:text-[#FF4500]"
         }`}
         title={!session ? "Login to vote" : "Upvote"}
       >
         ▲
       </button>
-      <span className={`text-xs md:text-sm font-semibold my-0.5 ${score > 0 ? 'text-[#FF4500]' : score < 0 ? 'text-[#7193FF]' : 'text-gray-500'}`}>
+      
+      <span className={`text-sm font-semibold ${score > 0 ? 'text-[#FF4500]' : score < 0 ? 'text-[#7193FF]' : 'text-gray-600'}`}>
         {score}
       </span>
+      
       <button
         onClick={() => handleVote("DOWN")}
         disabled={!session || loading}
-        className={`vote-button text-lg md:text-xl font-bold transition-all duration-150 ${
+        className={`text-xl font-bold transition-all duration-150 ${
           !session ? "opacity-50 cursor-not-allowed" : "hover:scale-110"
         } ${
-          userVote === "DOWN" ? "vote-button-active-down" : "text-gray-400 hover:text-[#7193FF]"
+          userVote === "DOWN" 
+            ? "text-[#7193FF]" 
+            : "text-gray-400 hover:text-[#7193FF]"
         }`}
         title={!session ? "Login to vote" : "Downvote"}
       >
@@ -72,4 +95,4 @@ export default function VoteButtons({ postId, initialScore, userVote: initialUse
       </button>
     </div>
   );
-} 
+}
