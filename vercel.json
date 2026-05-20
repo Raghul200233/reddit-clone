@@ -7,13 +7,12 @@
     }
   ],
   "env": {
-    "NEXTAUTH_URL": "https://your-domain.vercel.app",
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "DATABASE_URL": "@database_url",
-    "DIRECT_URL": "@direct_url"
+    "NEXTAUTH_URL": "https://your-project.vercel.app",
+    "NEXTAUTH_SECRET": "7f3a8b9c2d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a",
+    "DATABASE_URL": "postgresql://postgres.rhfxeodbsfkvqwutjcet:LUDys6EdvfulK7DD@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres",
+    "DIRECT_URL": "postgresql://postgres.rhfxeodbsfkvqwutjcet:LUDys6EdvfulK7DD@db.rhfxeodbsfkvqwutjcet.supabase.co:5432/postgres"
   },
   "buildCommand": "prisma generate && next build",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "outputDirectory": ".next"
+  "framework": "nextjs"
 }
