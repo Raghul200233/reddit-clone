@@ -3,33 +3,16 @@ import { getServerSession } from "next-auth";
 import { getToken } from "next-auth/jwt";
 
 export default async function handler(req, res) {
-  // Handle POST - Create new community
   if (req.method === "POST") {
-    // Try both methods to get user
-    const session = await getServerSession(req, res, {});
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     
-    let userId = null;
-    
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else if (token?.id) {
-      userId = token.id;
-    } else if (token?.sub) {
-      userId = token.sub;
-    }
-    
-    console.log("Session user:", session?.user);
-    console.log("Token:", token);
-    console.log("Extracted userId:", userId);
-    
-    if (!userId) {
-      return res.status(401).json({ error: "Unauthorized - Please login again" });
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized - Please login" });
     }
 
     const { name, description } = req.body;
 
-    // Validate input
+    // Validation
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Community name is required" });
     }
@@ -42,7 +25,6 @@ export default async function handler(req, res) {
     const slug = name.toLowerCase().trim();
 
     try {
-      // Check if community already exists
       const existingCommunity = await pool.query(
         `SELECT * FROM "Community" WHERE name = $1 OR slug = $2`,
         [name, slug]
@@ -52,7 +34,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Community already exists" });
       }
 
-      // Create the community (no authorId needed - communities don't have owners in this schema)
       const result = await pool.query(
         `INSERT INTO "Community" (id, name, slug, description, "createdAt") 
          VALUES (gen_random_uuid()::text, $1, $2, $3, NOW()) 
@@ -60,8 +41,7 @@ export default async function handler(req, res) {
         [name.trim(), slug, description || null]
       );
 
-      const newCommunity = result.rows[0];
-      res.status(201).json(newCommunity);
+      res.status(201).json(result.rows[0]);
     } catch (error) {
       console.error("Create community error:", error);
       res.status(500).json({ error: "Failed to create community: " + error.message });

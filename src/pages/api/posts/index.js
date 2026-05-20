@@ -1,19 +1,25 @@
 import pool from "../../../lib/db";
+import { getToken } from "next-auth/jwt";
 
 export default async function handler(req, res) {
   // Handle POST request - Create new post
-  if (req.method === "POST") {
-    const { getServerSession } = require("next-auth");
-    const session = await getServerSession(req, res, {});
-
-    if (!session) {
+if (req.method === "POST") {
+    // Use getToken instead of getServerSession for better reliability
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    
+    console.log("Token received:", token ? "Yes" : "No");
+    
+    if (!token) {
       return res.status(401).json({ error: "Unauthorized - Please login" });
     }
 
-    const userId = session.user?.id;
+    // Get user ID from token
+    const userId = token.id || token.sub;
+    
+    console.log("User ID from token:", userId);
     
     if (!userId) {
-      return res.status(401).json({ error: "User ID not found in session" });
+      return res.status(401).json({ error: "User ID not found. Please logout and login again." });
     }
 
     const { title, content, imageUrl, linkUrl, type, communitySlug } = req.body;
@@ -64,6 +70,8 @@ export default async function handler(req, res) {
           name: community.name,
           slug: community.slug,
         },
+        votes: [],
+        comments: []
       });
     } catch (error) {
       console.error("Create post error:", error);
