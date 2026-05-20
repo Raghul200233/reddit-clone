@@ -41,10 +41,10 @@ export default function CommunityPage() {
       const res = await fetch(`/api/posts?sort=${sortBy}&communitySlug=${slug}`);
       if (!res.ok) throw new Error("Failed to fetch posts");
       const data = await res.json();
+      console.log("Fetched posts for community:", slug, data);
       setPosts(data);
     } catch (error) {
       console.error("Error fetching posts:", error);
-      setError("Failed to load posts");
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function CommunityPage() {
     );
   };
 
-  if (error || (community === null && !loading)) {
+  if (error) {
     return (
       <Layout>
         <div className="text-center py-12">
@@ -125,14 +125,16 @@ export default function CommunityPage() {
         <SkeletonLoader />
       ) : posts.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">No posts yet in this community.</p>
-          {session && (
+          <p className="text-gray-500 text-lg mb-4">No posts yet in this community</p>
+          {session ? (
             <Link
               href={`/r/${slug}/create-post`}
-              className="inline-block mt-4 text-[#FF4500] hover:underline"
+              className="inline-block bg-[#FF4500] text-white px-6 py-2 rounded-full hover:bg-[#FF5722] transition-colors"
             >
-              Be the first to post!
+              Create First Post
             </Link>
+          ) : (
+            <p className="text-gray-400">Login to create the first post!</p>
           )}
         </div>
       ) : (

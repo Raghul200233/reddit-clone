@@ -1,9 +1,9 @@
 import pool from "../../../lib/db";
-import { getServerSession } from "next-auth";
 
 export default async function handler(req, res) {
   // Handle POST request - Create new post
   if (req.method === "POST") {
+    const { getServerSession } = require("next-auth");
     const session = await getServerSession(req, res, {});
 
     if (!session) {
@@ -56,194 +56,112 @@ export default async function handler(req, res) {
         [userId]
       );
 
-      // Return the complete post
-      const post = {
+      res.status(201).json({
         ...newPost,
         author: authorResult.rows[0],
         community: {
           id: community.id,
           name: community.name,
           slug: community.slug,
-          description: community.description,
         },
-        votes: [],
-        comments: []
-      };
-
-      return res.status(201).json(post);
+      });
     } catch (error) {
       console.error("Create post error:", error);
-      return res.status(500).json({ error: "Failed to create post: " + error.message });
+      res.status(500).json({ error: "Failed to create post: " + error.message });
     }
   }
   
-
-  const { sort = "latest", communitySlug } = req.query;
-
-// Build the WHERE clause for community filter
-let communityFilter = "";
-let queryParams = [];
-
-if (communitySlug) {
-  communityFilter = `WHERE c.slug = $1`;
-  queryParams = [communitySlug];
-}
-
   // Handle GET request - Fetch posts
   else if (req.method === "GET") {
-    const { sort = "latest" } = req.query;
+    const { sort = "latest", communitySlug } = req.query;
 
     try {
-      let posts;
-      
+      let query = `
+        SELECT 
+          p.*,
+          u.id as author_id,
+          u.username as author_username,
+          u.email as author_email,
+          c.id as community_id,
+          c.name as community_name,
+          c.slug as community_slug,
+          c.description as community_description,
+          COALESCE(
+            (SELECT json_agg(json_build_object('type', v.type, 'userId', v."userId")) 
+             FROM "Vote" v WHERE v."postId" = p.id),
+            '[]'::json
+          ) as votes,
+          COALESCE(
+            (SELECT COUNT(*) FROM "Comment" cm WHERE cm."postId" = p.id),
+            0
+          ) as comment_count
+        FROM "Post" p
+        JOIN "User" u ON p."authorId" = u.id
+        JOIN "Community" c ON p."communityId" = c.id
+      `;
+
+      let params = [];
+
+      // Add community filter if provided
+      if (communitySlug) {
+        query += ` WHERE c.slug = $1`;
+        params.push(communitySlug);
+      }
+
+      // Add ordering
       if (sort === "latest") {
-        // Fetch latest posts
-const result = await pool.query(`
-  SELECT 
-    p.*,
-    u.id as author_id,
-    u.username as author_username,
-    u.email as author_email,
-    c.id as community_id,
-    c.name as community_name,
-    c.slug as community_slug,
-    c.description as community_description,
-    COALESCE(
-      (SELECT json_agg(json_build_object('type', v.type, 'userId', v."userId")) 
-       FROM "Vote" v WHERE v."postId" = p.id),
-      '[]'::json
-    ) as votes,
-    COALESCE(
-      (SELECT COUNT(*) FROM "Comment" cm WHERE cm."postId" = p.id),
-      0
-    ) as comment_count
-  FROM "Post" p
-  JOIN "User" u ON p."authorId" = u.id
-  JOIN "Community" c ON p."communityId" = c.id
-  ${communityFilter}
-  ORDER BY p."createdAt" DESC
-  LIMIT 50
-`, queryParams);
-        
-        posts = result.rows.map(row => ({
-          id: row.id,
-          title: row.title,
-          content: row.content,
-          imageUrl: row.imageUrl,
-          linkUrl: row.linkUrl,
-          type: row.type,
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-          communityId: row.communityId,
-          authorId: row.authorId,
-          author: {
-            id: row.author_id,
-            username: row.author_username,
-            email: row.author_email,
-          },
-          community: {
-            id: row.community_id,
-            name: row.community_name,
-            slug: row.community_slug,
-            description: row.community_description,
-          },
-          votes: row.votes || [],
-          comments: [],
-          commentCount: parseInt(row.comment_count),
-          voteScore: Array.isArray(row.votes) 
-            ? row.votes.reduce((acc, vote) => acc + (vote.type === "UP" ? 1 : -1), 0)
-            : 0
-        }));
-        
-        return res.status(200).json(posts);
-        
-      } else if (sort === "popular") {
-        // Fetch posts sorted by vote score
-        const result = await pool.query(`
-          SELECT 
-            p.*,
-            u.id as author_id,
-            u.username as author_username,
-            u.email as author_email,
-            c.id as community_id,
-            c.name as community_name,
-            c.slug as community_slug,
-            c.description as community_description,
-            COALESCE(
-              (SELECT json_agg(json_build_object('type', v.type, 'userId', v."userId")) 
-               FROM "Vote" v WHERE v."postId" = p.id),
-              '[]'::json
-            ) as votes,
-            COALESCE(
-              (SELECT COUNT(*) FROM "Comment" cm WHERE cm."postId" = p.id),
-              0
-            ) as comment_count,
-            COALESCE(
-              (SELECT COUNT(*) FROM "Vote" v WHERE v."postId" = p.id AND v.type = 'UP'), 0
-            ) as upvotes,
-            COALESCE(
-              (SELECT COUNT(*) FROM "Vote" v WHERE v."postId" = p.id AND v.type = 'DOWN'), 0
-            ) as downvotes
-          FROM "Post" p
-          JOIN "User" u ON p."authorId" = u.id
-          JOIN "Community" c ON p."communityId" = c.id
-          LIMIT 100
-        `);
-        
-        // Calculate vote scores and sort
-        const postsWithScores = result.rows.map(row => {
-          const votes = row.votes || [];
-          const voteScore = votes.reduce((acc, vote) => acc + (vote.type === "UP" ? 1 : -1), 0);
-          
-          return {
-            id: row.id,
-            title: row.title,
-            content: row.content,
-            imageUrl: row.imageUrl,
-            linkUrl: row.linkUrl,
-            type: row.type,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-            communityId: row.communityId,
-            authorId: row.authorId,
-            author: {
-              id: row.author_id,
-              username: row.author_username,
-              email: row.author_email,
-            },
-            community: {
-              id: row.community_id,
-              name: row.community_name,
-              slug: row.community_slug,
-              description: row.community_description,
-            },
-            votes: votes,
-            comments: [],
-            commentCount: parseInt(row.comment_count),
-            voteScore: voteScore,
-            upvotes: parseInt(row.upvotes),
-            downvotes: parseInt(row.downvotes)
-          };
-        });
-        
-        // Sort by vote score (highest first)
-        posts = postsWithScores.sort((a, b) => b.voteScore - a.voteScore);
-        
-        return res.status(200).json(posts);
+        query += ` ORDER BY p."createdAt" DESC`;
       } else {
-        // Invalid sort parameter
-        return res.status(400).json({ error: 'Invalid sort parameter. Use "latest" or "popular"' });
+        query += ` ORDER BY p."createdAt" DESC`; // Will sort by vote score in JS
+      }
+
+      query += ` LIMIT 50`;
+
+      const result = await pool.query(query, params);
+      
+      // Transform the data
+      let posts = result.rows.map(row => ({
+        id: row.id,
+        title: row.title,
+        content: row.content,
+        imageUrl: row.imageUrl,
+        linkUrl: row.linkUrl,
+        type: row.type,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        author: {
+          id: row.author_id,
+          username: row.author_username,
+          email: row.author_email,
+        },
+        community: {
+          id: row.community_id,
+          name: row.community_name,
+          slug: row.community_slug,
+          description: row.community_description,
+        },
+        votes: row.votes || [],
+        commentCount: parseInt(row.comment_count),
+        voteScore: Array.isArray(row.votes) 
+          ? row.votes.reduce((acc, vote) => acc + (vote.type === "UP" ? 1 : -1), 0)
+          : 0
+      }));
+
+      // Sort by vote score for popular
+      if (sort === "popular") {
+        posts = posts.sort((a, b) => b.voteScore - a.voteScore);
       }
       
+      console.log(`Returning ${posts.length} posts for ${communitySlug || 'all communities'}`);
+      res.status(200).json(posts);
     } catch (error) {
       console.error("Fetch posts error:", error);
-      return res.status(500).json({ error: "Failed to fetch posts: " + error.message });
+      res.status(500).json({ error: "Failed to fetch posts: " + error.message });
     }
   }
   
-  // Handle other methods
   else {
     res.setHeader('Allow', ['GET', 'POST']);
-    return res.status(405).json({ error: `Method ${req.method} not allowed. Use GET or POST` });
+    res.status(405).json({ error: `Method ${req.method} not allowed` });
   }
 }
