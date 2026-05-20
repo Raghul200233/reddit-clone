@@ -40,47 +40,33 @@ export default function CreatePost() {
   }
 
   const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Please upload a valid image (JPEG, PNG, GIF, or WEBP)');
-      return;
-    }
+  // Validate file type and size
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('Image must be less than 5MB');
+    return;
+  }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size should be less than 5MB');
-      return;
-    }
+  setUploading(true);
+  const formData = new FormData();
+  formData.append('image', file);
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-      
-      if (res.ok) {
-        setImageUrl(data.imageUrl);
-        toast.success('Image uploaded successfully!');
-      } else {
-        toast.error(data.error || 'Failed to upload image');
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload image');
-    } finally {
-      setUploading(false);
-    }
-  };
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    setImageUrl(data.imageUrl);
+    toast.success('Image uploaded!');
+  } catch (error) {
+    toast.error('Upload failed');
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -236,18 +222,14 @@ export default function CreatePost() {
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                   <input
                     type="file"
-                    id="imageUpload"
                     accept="image/*"
                     onChange={handleImageUpload}
                     className="hidden"
+                    id="imageUpload"
                   />
-                  <label
-                    htmlFor="imageUpload"
-                    className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    <span className="text-xl">📤</span>
-                    {uploading ? 'Uploading...' : 'Choose Image File'}
-                  </label>
+                <label htmlFor="imageUpload" className="cursor-pointer btn-secondary">
+                  📁 Upload from Computer
+                </label>
                   <p className="text-xs text-gray-500 mt-2">
                     Supports: JPG, PNG, GIF, WEBP (Max 5MB)
                   </p>
