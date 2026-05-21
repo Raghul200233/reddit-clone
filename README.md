@@ -2,8 +2,6 @@
 
 A production-ready Reddit clone built with Next.js, PostgreSQL, and Tailwind CSS. This application replicates core Reddit functionality including communities, posts, voting, comments, and user authentication.
 
-![Reddit Clone Screenshot](https://via.placeholder.com/800x400?text=Reddit+Clone+Screenshot)
-
 ## 🚀 Live Demo
 
 **[View Live Demo](https://reddit-ui-clone-eta.vercel.app)**
@@ -72,10 +70,12 @@ bash
 npm install
 # or
 yarn install
+```
 3. Set up environment variables
 Create a .env.local file in the root directory:
 
 env
+```
 # Database (Supabase)
 DATABASE_URL="postgresql://postgres.xxxx:password@aws-0-region.pooler.supabase.com:6543/postgres"
 DIRECT_URL="postgresql://postgres.xxxx:password@db.xxxx.supabase.co:5432/postgres"
@@ -87,6 +87,8 @@ NEXTAUTH_SECRET="your-secret-key-here"
 # Optional: Supabase Client (for file uploads)
 NEXT_PUBLIC_SUPABASE_URL="your-supabase-url"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
+
+```
 4. Set up the database
 bash
 # Generate Prisma client
@@ -106,8 +108,8 @@ npm run dev
 yarn dev
 Open http://localhost:3000 to view the app.
 
-📁 Project Structure
-text
+# 📁 Project Structure
+```
 reddit-clone/
 ├── prisma/
 │   ├── schema.prisma      # Database schema
@@ -147,7 +149,10 @@ reddit-clone/
 ├── tailwind.config.js     # Tailwind config
 ├── vercel.json            # Vercel deployment config
 └── package.json
-🔌 API Endpoints
+```
+
+# 🔌 API Endpoints
+```
 Method	Endpoint	Description
 GET	/api/posts	Fetch all posts (latest/popular)
 POST	/api/posts	Create a new post
@@ -158,26 +163,24 @@ GET	/api/communities/search?q=	Search communities
 POST	/api/votes	Upvote/downvote a post
 GET	/api/comments?postId=	Fetch comments for a post
 POST	/api/comments	Add a comment
-🚀 Deployment
+```
+# 🚀 Deployment
+```
 Deploy to Vercel
 Push your code to GitHub
-
 Go to Vercel
-
 Click "Add New" → "Project"
-
 Import your GitHub repository
-
 Add environment variables (same as .env.local)
-
 Click "Deploy"
-
 Environment Variables for Production
 env
 DATABASE_URL=your_supabase_pooled_url
 DIRECT_URL=your_supabase_direct_url
 NEXTAUTH_URL=https://your-domain.vercel.app
 NEXTAUTH_SECRET=your_secret_key
+```
+```
 🧪 Testing
 Test Accounts (after seeding)
 All passwords: password123
@@ -188,8 +191,9 @@ code@example.com	code_master
 web@example.com	web_wizard
 dev@example.com	dev_enthusiast
 startup@example.com	startup_founder
-API Testing
-bash
+```
+# API Testing
+```
 # Test posts endpoint
 curl https://your-domain.vercel.app/api/posts?sort=latest
 
@@ -198,7 +202,10 @@ curl https://your-domain.vercel.app/api/communities
 
 # Test search
 curl https://your-domain.vercel.app/api/communities/search?q=tech
-📊 Database Schema
+```
+
+# 📊 Database Schema
+```
 prisma
 model User {
   id        String    @id @default(cuid())
@@ -254,54 +261,41 @@ model Vote {
   
   @@unique([userId, postId])
 }
-🤝 Contributing
+```
+# 🤝 Contributing
 Fork the repository
-
 Create a feature branch (git checkout -b feature/amazing)
-
 Commit changes (git commit -m 'Add amazing feature')
-
 Push to branch (git push origin feature/amazing)
-
 Open a Pull Request
 
-📝 License
+# 📝 License
 This project is MIT licensed.
 
-🙏 Acknowledgments
+# 🙏 Acknowledgments
 Next.js - React framework
-
 Tailwind CSS - Styling
-
 Supabase - Database hosting
-
 Vercel - Deployment platform
-
 NextAuth.js - Authentication
 
-📧 Contact
-Your Name - @yourtwitter - your.email@example.com
+# 📧 Contact
+Your Name - @raghulsubramaniam - rahulsls332002@gmail.com
+Project Link: https://github.com/Raghul200233/reddit-clone
 
-Project Link: https://github.com/yourusername/reddit-clone
-
-⚠️ Troubleshooting
+# ⚠️ Troubleshooting
+```
 Database connection issues
 Verify your Supabase instance is active
-
 Check that DATABASE_URL is correct in .env.local
-
 Run npx prisma db push to sync schema
-
 Build errors on Vercel
 Ensure all environment variables are set in Vercel dashboard
-
 Check that NEXTAUTH_SECRET is properly configured
-
 Verify Node.js version is 18+
-
 401 Unauthorized errors
 Clear browser cookies and login again
-
 Check that NEXTAUTH_SECRET matches across environments
+```
 
 Built with ❤️ using Next.js and Tailwind CSS
